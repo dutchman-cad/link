@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+id = "dutchman_link"
+version = "0.1.0"
+name = "Dutchman Link"
+tagline = "Live link a local SolidCraft design into Blender"
+maintainer = "Ray"
+type = "add-on"
+tags = ["Import-Export"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+[permissions]
+network = "Connect to SolidCraft's authenticated localhost control channel"
+files = "Read the local control token and exchange temporary 3MF exports"
+[build]
+paths_exclude_pattern = [".git/", "__pycache__/", "tests/", "*.log", "*.zip", "BRIEF.md"]

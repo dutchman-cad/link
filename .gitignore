@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.zip
+codex.log
+.local/
+BRIEF.md
+codex-last.md
