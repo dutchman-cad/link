@@ -19,7 +19,7 @@ from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
 PORT = int(os.environ.get('DUTCHMAN_TEST_PORT', '17894'))
-SHOTS = Path(os.environ.get('DUTCHMAN_SHOTS', '/home/ray/Documents/dutchman-link-shots'))
+SHOTS = Path(os.environ.get('DUTCHMAN_SHOTS', 'shots'))
 
 
 def install():
