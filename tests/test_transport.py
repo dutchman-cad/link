@@ -3,9 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
-import socket
 import tempfile
-import threading
 import unittest
 import zipfile
 
@@ -17,27 +15,41 @@ spec.loader.exec_module(transport)
 class TransportTests(unittest.TestCase):
     def test_authentication_and_server_error(self):
         requests = []
-        with socket.socket() as listener:
-            listener.bind(('127.0.0.1', 0))
-            listener.listen()
-            port = listener.getsockname()[1]
-            def serve():
-                conn, _ = listener.accept()
-                with conn, conn.makefile('rb') as stream:
-                    for i in range(2):
-                        requests.append(json.loads(stream.readline()))
-                        reply = {'id': i+1, 'ok': i == 0, 'result': {'revision': 7}, 'error': 'export failed'}
-                        conn.sendall((json.dumps(reply)+'\n').encode())
-            worker = threading.Thread(target=serve)
-            worker.start()
-            with transport.Client(port, 'test-secret') as client:
-                self.assertEqual(client.call('document.inspect'), {'revision': 7})
-                with self.assertRaisesRegex(transport.ControlError, 'export failed'):
-                    client.execute('file.export')
-            worker.join(timeout=5)
+        class FakeTransport:
+            def exchange(self, line):
+                request = json.loads(line)
+                requests.append(request)
+                i = len(requests)
+                return (json.dumps(dict(id=request['id'], ok=i == 1,
+                                        result={'revision': 7}, error='export failed')) + '\n').encode()
+            def close(self):
+                pass
+        with transport.Client(7878, 'test-secret', transport_factory=FakeTransport) as client:
+            self.assertEqual(client.call('document.inspect'), {'revision': 7})
+            with self.assertRaisesRegex(transport.ControlError, 'export failed'):
+                client.execute('file.export')
         self.assertEqual(requests[0]['token'], 'test-secret')
         self.assertNotIn('token', requests[1])
         self.assertEqual(requests[1]['method'], 'engine.execute')
+
+    def test_poll_uses_bridge_export_and_suppresses_identical_content(self):
+        from unittest.mock import patch
+        class FakeClient:
+            def __init__(self, *args):
+                pass
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def call(self, *args):
+                return {'name': 'Design', 'bodies': [{'name': 'Cube'}]}
+        bodies = [{'name': 'Cube', 'hash': 'first'}]
+        with patch.object(transport, 'Client', FakeClient), patch.object(transport, 'export_snapshot', return_value=bodies):
+            first = transport.poll(7878, 'secret', None)
+            self.assertIsNone(transport.poll(7878, 'secret', first['revision']))
+            bodies[0]['hash'] = 'changed colour'
+            changed = transport.poll(7878, 'secret', first['revision'])
+            self.assertNotEqual(first['revision'], changed['revision'])
 
     def test_named_colored_mesh_and_content_hash(self):
         xml = '''<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">

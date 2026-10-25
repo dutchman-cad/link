@@ -26,8 +26,11 @@ def install():
     folder = Path(tempfile.mkdtemp(prefix='dutchman-extension-test-'))
     package = folder / 'dutchman_link-0.1.0.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as z:
-        for name in ('__init__.py', 'transport.py', 'blender_manifest.toml', 'LICENSE', 'README.md'):
+        for name in ('__init__.py', 'transport.py', 'mesh.py', 'blender_manifest.toml', 'LICENSE', 'README.md'):
             z.write(ROOT / name, name)
+        for path in (ROOT / 'dutchman_link').rglob('*'):
+            if path.is_file() and '__pycache__' not in path.parts:
+                z.write(path, str(path.relative_to(ROOT)))
     repo_dir = folder / 'repo'
     repo_dir.mkdir()
     bpy.ops.preferences.extension_repo_add(name='Dutchman local test', type='LOCAL',
@@ -79,7 +82,9 @@ def setup_render(objects):
         if obj not in objects:
             bpy.data.objects.remove(obj, do_unlink=True)
     scene = bpy.context.scene
-    scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    # Blender 4.2-4.x calls EEVEE 'BLENDER_EEVEE_NEXT'; 5.x went back to 'BLENDER_EEVEE'.
+    engines = scene.render.bl_rna.properties['engine'].enum_items.keys()
+    scene.render.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in engines else 'BLENDER_EEVEE'
     scene.render.resolution_x = 640
     scene.render.resolution_y = 480
     scene.render.resolution_percentage = 100
